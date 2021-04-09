@@ -1,6 +1,6 @@
 import pygame
 import sys
-from game import Direction, Wall, GameField, GameState
+from game import Direction, Wall, GameField, GameState, Game, Result
 
 
 heading = 'NeuWappo'
@@ -10,7 +10,17 @@ player_src = 'img/boy.png'
 exit_src = 'img/exit.png'
 freeze_src = 'img/freeze.png'
 
-BLACK = (0, 0, 0, 255)
+WHITE = (255, 255, 255)
+GREY = (238, 238, 238)
+BLACK = (0, 0, 0)
+
+
+font_name = 'freesansbold.ttf'
+font_size = 24
+center_label_text = "Run for your life!"
+win_text = "You won!"
+lose_text = "You lost!"
+retry_text = "Retry"
 
 screen_w = 1024
 screen_h = 682
@@ -24,6 +34,10 @@ field_x0 = center_x - 3 * cell_w
 field_y0 = center_y - 3 * cell_h
 field_w = 6 * cell_w
 field_h = 6 * cell_h
+retry_x0 = 800
+retry_y0 = 30
+retry_w = 120
+retry_h = 40
 
 pygame.init()
 pygame.display.set_caption(heading)
@@ -37,20 +51,44 @@ exit_img = pygame.image.load(exit_src)
 exit_scale_img = pygame.transform.scale(exit_img, (cell_w, cell_h))
 freeze_img = pygame.image.load(freeze_src)
 freeze_scale_img = pygame.transform.scale(freeze_img, (int(0.9 * cell_w), int(0.9 * cell_h)))
+
 screen = pygame.display.set_mode((screen_w, screen_h))
 
 
-def update_screen(game_state: GameState):
+def update_screen(game_state: GameState, result: Result):
     screen.blit(background_img, (0, 0))
+    draw_retry_button(WHITE)
+    draw_game_field(game_state)
+    draw_walking_elements(game_state)
+    draw_center_label(result)
+    pygame.display.update()
+
+
+def get_test_game_field() -> GameField:
+    field_size = (6, 6)
+    exit_pos = (5, 2)
+    exit_direction = Direction.RIGHT
+    walls = [Wall(0, 0, Direction.DOWN), Wall(0, 1, Direction.RIGHT),
+             Wall(0, 2, Direction.RIGHT), Wall(0, 3, Direction.RIGHT)]
+    freeze_cells = [(0, 0), (0, 4)]
+    return GameField(field_size, exit_pos, exit_direction, walls, freeze_cells)
+
+
+def get_test_game_state() -> GameState:
+    player_pos = (2, 4)
+    enemy_pos = (0, 2)
+    return GameState(get_test_game_field(), player_pos, enemy_pos)
+
+
+def launch_test_game() -> Game:
+    return Game(get_test_game_state())
+
+
+def draw_game_field(game_state: GameState):
     for f in game_state.field.freeze_cells:
         f_x = field_x0 + f[0] * cell_w + int(0.05 * cell_w)
         f_y = field_y0 + f[1] * cell_h + int(0.05 * cell_h)
         screen.blit(freeze_scale_img, (f_x, f_y))
-    enemy_img_x = field_x0 + game_state.enemy_x * cell_w + int(0.1 * cell_w)
-    enemy_img_y = field_y0 + game_state.enemy_y * cell_h + int(0.1 * cell_h)
-    screen.blit(enemy_scale_img, (enemy_img_x, enemy_img_y))
-    player_img_x = field_x0 + game_state.player_x * cell_w + int(0.1 * cell_w)
-    player_img_y = field_y0 + game_state.player_y * cell_h + int(0.1 * cell_h)
     exit_img_x = field_x0 + game_state.field.exit_pos[0] * cell_w
     exit_img_y = field_y0 + game_state.field.exit_pos[1] * cell_h
     if game_state.field.exit_direction == Direction.RIGHT:
@@ -62,8 +100,8 @@ def update_screen(game_state: GameState):
     else:
         exit_img_y += cell_h
     screen.blit(exit_scale_img, (exit_img_x, exit_img_y))
-    screen.blit(player_scale_img, (player_img_x, player_img_y))
     pygame.draw.rect(screen, BLACK, (field_x0, field_y0, field_w, field_h), 4)
+    draw_retry_button(WHITE)
     for _ in range(5):
         pygame.draw.line(screen, BLACK, (field_x0 + (_ + 1) * cell_w, field_y0),
                          (field_x0 + (_ + 1) * cell_w, field_y0 + 6 * cell_h))
@@ -83,27 +121,47 @@ def update_screen(game_state: GameState):
         else:
             w_y0 = w_y1
         pygame.draw.line(screen, BLACK, (w_x0, w_y0), (w_x1, w_y1), wall_w)
-    pygame.display.update()
 
 
-def get_test_game_field() -> GameField:
-    field_size = (6, 6)
-    exit_pos = (5, 2)
-    exit_direction = Direction.RIGHT
-    walls = [Wall(0, 0, Direction.DOWN), Wall(0, 1, Direction.RIGHT),
-             Wall(0, 2, Direction.RIGHT), Wall(0, 3, Direction.RIGHT)]
-    freeze_cells = [(0, 0)]
-    return GameField(field_size, exit_pos, exit_direction, walls, freeze_cells)
+def draw_walking_elements(game_state: GameState):
+    enemy_img_x = field_x0 + game_state.enemy_x * cell_w + int(0.1 * cell_w)
+    enemy_img_y = field_y0 + game_state.enemy_y * cell_h + int(0.1 * cell_h)
+    screen.blit(enemy_scale_img, (enemy_img_x, enemy_img_y))
+    player_img_x = field_x0 + game_state.player_x * cell_w + int(0.1 * cell_w)
+    player_img_y = field_y0 + game_state.player_y * cell_h + int(0.1 * cell_h)
+    screen.blit(player_scale_img, (player_img_x, player_img_y))
+    
+
+def draw_center_label(result: Result):
+    font_state = pygame.font.Font(font_name, font_size)
+    if result == Result.UNDEFINED:
+        text = center_label_text
+    elif result == Result.WIN:
+        text = win_text
+    else:
+        text = lose_text
+    text_state = font_state.render(text, True, BLACK)
+    text_state_rect = text_state.get_rect()
+    text_state_rect.center = (screen_w // 2, retry_y0 + retry_h // 2)
+    screen.blit(text_state, text_state_rect)
 
 
-def get_test_game_state() -> GameState:
-    player_pos = (2, 4)
-    enemy_pos = (0, 2)
-    return GameState(get_test_game_field(), player_pos, enemy_pos)
+def draw_retry_button(color: tuple[int, int, int]):
+    pygame.draw.rect(screen, color, (retry_x0, retry_y0, retry_w, retry_h), 0, 10)
+    pygame.draw.rect(screen, BLACK, (retry_x0, retry_y0, retry_w, retry_h), 4, 10)
+    font_state = pygame.font.Font(font_name, font_size)
+    text_state = font_state.render(retry_text, True, BLACK)
+    text_state_rect = text_state.get_rect()
+    text_state_rect.center = (retry_x0 + retry_w // 2, retry_y0 + retry_h // 2)
+    screen.blit(text_state, text_state_rect)
 
 
-cur_game_state = get_test_game_state()
-update_screen(cur_game_state)
+def is_button_clicked(mouse_pos: tuple[int, int]) -> bool:
+    return (retry_x0 < mouse_pos[0] < retry_x0 + retry_w) and (retry_y0 < mouse_pos[1] < retry_y0 + retry_h)
+
+
+game = launch_test_game()
+update_screen(game.cur_state, game.result)
 
 while True:
     for ev in pygame.event.get():
@@ -112,11 +170,17 @@ while True:
             sys.exit()
         if ev.type == pygame.KEYDOWN:
             if ev.key == pygame.K_UP:
-                cur_game_state.move(Direction.UP)
+                game.move(Direction.UP)
             if ev.key == pygame.K_DOWN:
-                cur_game_state.move(Direction.DOWN)
+                game.move(Direction.DOWN)
             if ev.key == pygame.K_LEFT:
-                cur_game_state.move(Direction.LEFT)
+                game.move(Direction.LEFT)
             if ev.key == pygame.K_RIGHT:
-                cur_game_state.move(Direction.RIGHT)
-            update_screen(cur_game_state)
+                game.move(Direction.RIGHT)
+            update_screen(game.cur_state, game.result)
+        if ev.type == pygame.MOUSEBUTTONDOWN:
+            if is_button_clicked(pygame.mouse.get_pos()):
+                draw_retry_button(GREY)
+                pygame.display.update()
+                game.retry()
+                update_screen(game.cur_state, game.result)
