@@ -53,13 +53,14 @@ class GameField:
 
 
 class GameState:
-    def __init__(self, field: GameField, player_pos: tuple[int, int], enemy_pos: tuple[int, int]):
+    def __init__(self, field: GameField, player_pos: tuple[int, int], enemy_pos: tuple[int, int], freeze_time: int = 0):
         self.field = field
         self.player_x = player_pos[0]
         self.player_y = player_pos[1]
         self.enemy_x = enemy_pos[0]
         self.enemy_y = enemy_pos[1]
         self.find_exit = False
+        self.freeze_time = freeze_time
 
     def can_move(self, is_player_move: bool, direction: Direction):
         if self.find_exit:
@@ -140,13 +141,12 @@ class GameState:
 class Game:
     def __init__(self, init_state: GameState):
         self.init_state = GameState(init_state.field, (init_state.player_x, init_state.player_y),
-                                    (init_state.enemy_x, init_state.enemy_y))
+                                    (init_state.enemy_x, init_state.enemy_y), init_state.freeze_time)
         self.cur_state = GameState(init_state.field, (init_state.player_x, init_state.player_y),
-                                   (init_state.enemy_x, init_state.enemy_y))
+                                   (init_state.enemy_x, init_state.enemy_y), init_state.freeze_time)
         self.result = Result.UNDEFINED
         if self.__check_lose():
             self.result = Result.LOSE
-        self.freeze_time = 0
 
     def move(self, direction: Direction) -> bool:
         if self.result != Result.UNDEFINED:
@@ -164,7 +164,7 @@ class Game:
             self.result = Result.LOSE
             return True
 
-        if self.freeze_time > 0:
+        if self.cur_state.freeze_time > 0:
             enemy_moves = 0
         else:
             enemy_moves = 2
@@ -184,14 +184,15 @@ class Game:
                 self.result = Result.LOSE
                 return True
             if self.__check_enemy_on_freeze():
-                self.freeze_time = 3
+                self.cur_state.freeze_time = 3
                 return True
-        self.freeze_time -= 1
+        if self.cur_state.freeze_time > 0:
+            self.cur_state.freeze_time -= 1
         return True
 
     def retry(self):
         self.cur_state = GameState(self.init_state.field, (self.init_state.player_x, self.init_state.player_y),
-                                   (self.init_state.enemy_x, self.init_state.enemy_y))
+                                   (self.init_state.enemy_x, self.init_state.enemy_y), self.init_state.freeze_time)
         self.result = Result.UNDEFINED
         if self.__check_lose():
             self.result = Result.LOSE
