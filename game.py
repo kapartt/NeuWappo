@@ -53,7 +53,8 @@ class GameField:
 
 
 class GameState:
-    def __init__(self, field: GameField, player_pos: tuple[int, int], enemy_pos: tuple[int, int], freeze_time: int = 0):
+    def __init__(self, field: GameField, player_pos: tuple[int, int], enemy_pos: tuple[int, int], freeze_time: int = 0,
+                 can_freeze: bool = True):
         self.field = field
         self.player_x = player_pos[0]
         self.player_y = player_pos[1]
@@ -61,6 +62,7 @@ class GameState:
         self.enemy_y = enemy_pos[1]
         self.find_exit = False
         self.freeze_time = freeze_time
+        self.can_freeze = can_freeze
 
     def can_move(self, is_player_move: bool, direction: Direction):
         if self.find_exit:
@@ -175,19 +177,23 @@ class Game:
             if wanted_direction_x > 0 and self.cur_state.move_unit(False, Direction.RIGHT) \
                     or wanted_direction_x < 0 and self.cur_state.move_unit(False, Direction.LEFT):
                 skip_horizontal_move = False
+                self.cur_state.can_freeze = True
             if skip_horizontal_move:
                 wanted_direction_y = self.cur_state.player_y - self.cur_state.enemy_y
                 if wanted_direction_y > 0 and self.cur_state.move_unit(False, Direction.DOWN) \
                         or wanted_direction_y < 0 and self.cur_state.move_unit(False, Direction.UP):
-                    pass
+                    self.cur_state.can_freeze = True
             if self.__check_lose():
                 self.result = Result.LOSE
                 return True
-            if self.__check_enemy_on_freeze():
+            if self.cur_state.can_freeze and self.__check_enemy_on_freeze():
                 self.cur_state.freeze_time = 3
                 return True
         if self.cur_state.freeze_time > 0:
             self.cur_state.freeze_time -= 1
+            if self.cur_state.freeze_time == 0:
+                self.cur_state.can_freeze = False
+        print(self.cur_state.freeze_time)
         return True
 
     def retry(self):
