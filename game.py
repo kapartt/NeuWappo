@@ -193,7 +193,6 @@ class Game:
             self.cur_state.freeze_time -= 1
             if self.cur_state.freeze_time == 0:
                 self.cur_state.can_freeze = False
-        print(self.cur_state.freeze_time)
         return True
 
     def retry(self):
